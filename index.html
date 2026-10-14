@@ -102,6 +102,11 @@
     .choices.done .choice:not(.picked) { opacity: .45; }
     .choice.picked { border-color: var(--primary); background: var(--primary-soft); color: var(--primary); }
     .choice.picked .chev { color: var(--primary); }
+    .back-btn { margin-top: 10px; border: 0; background: transparent; color: var(--text-3); font-size: 13.5px; font-weight: 600; padding: 6px 8px 6px 2px; border-radius: 10px; cursor: pointer; display: inline-flex; align-items: center; gap: 2px; }
+    .back-btn svg { width: 16px; height: 16px; }
+    .back-btn:hover:not(:disabled) { color: var(--primary); background: var(--primary-soft); }
+    .back-btn:disabled { opacity: .4; cursor: default; }
+    .msg.bot.left .choice:not(.picked) { opacity: .45; }
     .scope-docs, .examples { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
     .scope-docs .label, .examples .label { font-size: 12px; font-weight: 600; color: var(--text-3); margin-bottom: 8px; }
     .sd { display: flex; gap: 8px; align-items: flex-start; background: var(--fill); border-radius: 10px; padding: 8px 10px; font-size: 13px; font-weight: 600; color: var(--text-2); line-height: 1.45; }
@@ -388,12 +393,26 @@
       scrollDown();
       return d;
     }
-    function addChoices(text, nodes, path) {
-      var d = botMsg('<p class="g-ask">' + esc(text) + '</p><div class="choices">' + nodes.map(function (n, i) {
+    var ICON_BACK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>';
+    var BACK_BTN = '<button type="button" class="back-btn">' + ICON_BACK + '이전 단계로</button>';
+    // 이전 단계로: 지금 카드의 버튼을 잠그고, 한 단계 위의 고르기를 다시 보여 줍니다.
+    function goBack(card, target) {
+      if (waiting || !target) return;
+      card.querySelectorAll('button').forEach(function (x) { x.disabled = true; });
+      card.classList.add('left');
+      guide.touched = true;
+      setScope(null);
+      addUser('이전 단계로');
+      addChoices(target);
+    }
+    // ctx = { text: 묻는 말, nodes: 고를 항목, path: 여기까지 고른 경로, back: 한 단계 위 ctx }
+    function addChoices(ctx) {
+      var nodes = ctx.nodes;
+      var d = botMsg('<p class="g-ask">' + esc(ctx.text) + '</p><div class="choices">' + nodes.map(function (n, i) {
         var soon = n.ready === false;
         return '<button type="button" class="choice' + (soon ? ' soon' : '') + '" data-i="' + i + '"><span class="c-t">' + esc(n.name) + '</span>' +
           (soon ? '<span class="c-soon">준비 중</span>' : ICON_CHEV) + '</button>';
-      }).join('') + '</div>');
+      }).join('') + '</div>' + (ctx.back ? BACK_BTN : ''));
       d.classList.add('guide');
       var box = d.querySelector('.choices');
       box.addEventListener('click', function (e) {
@@ -401,26 +420,28 @@
         if (!b || waiting || box.classList.contains('done')) return;
         box.classList.add('done');
         b.classList.add('picked');
-        box.querySelectorAll('button').forEach(function (x) { x.disabled = true; });
+        d.querySelectorAll('button').forEach(function (x) { x.disabled = true; });
         guide.touched = true;
-        var n = nodes[Number(b.dataset.i)];
-        pick(n, path.concat([n.name]), nodes, path);
+        pick(nodes[Number(b.dataset.i)], ctx);
       });
+      var bb = d.querySelector('.back-btn');
+      if (bb) bb.addEventListener('click', function () { goBack(d, ctx.back); });
       return d;
     }
-    function pick(n, newPath, siblings, parentPath) {
+    function pick(n, ctx) {
+      var newPath = ctx.path.concat([n.name]);
       addUser(n.name);
       if (n.children && n.children.length) {
-        addChoices(n.ask || '어떤 내용이 궁금하신가요?', n.children, newPath);
+        addChoices({ text: n.ask || '어떤 내용이 궁금하신가요?', nodes: n.children, path: newPath, back: ctx });
       } else if (n.ready === false) {
         botMsg('<p>「' + esc(n.name) + '」 자료는 아직 준비 중이에요.</p>');
-        addChoices('다른 항목을 골라 주세요.', siblings, parentPath);
+        addChoices({ text: '다른 항목을 골라 주세요.', nodes: ctx.nodes, path: ctx.path, back: ctx.back });
       } else {
         setScope({ path: newPath, node: n });
-        addReady(n);
+        addReady(n, ctx);
       }
     }
-    function addReady(n) {
+    function addReady(n, ctx) {
       var titles = n.titles || [], ex = n.examples || [];
       var d = botMsg('<p><b>' + esc(n.name) + '</b>에 관해 궁금한 점을 편하게 물어보세요.</p>' +
         (titles.length ? '<div class="scope-docs"><div class="label">이 자료 안에서 답해 드려요</div>' + titles.map(function (t) {
@@ -428,10 +449,12 @@
         }).join('') + '</div>' : '') +
         (ex.length ? '<div class="examples"><div class="label">이렇게 물어볼 수 있어요</div>' + ex.map(function (q, i) {
           return '<button type="button" class="ex" data-i="' + i + '">' + ICON_Q + '<span>' + esc(q) + '</span></button>';
-        }).join('') + '</div>' : ''));
+        }).join('') + '</div>' : '') + BACK_BTN);
       d.addEventListener('click', function (e) {
         var b = e.target.closest('button.ex');
-        if (b) ask(ex[Number(b.dataset.i)]);
+        if (b && !b.disabled) ask(ex[Number(b.dataset.i)]);
+        // 마지막 항목에서 이전 단계로: 방금 고른 단계의 항목들을 다시 보여 줍니다.
+        if (e.target.closest('.back-btn')) goBack(d, ctx);
       });
       if (window.matchMedia && matchMedia('(pointer: fine)').matches) input.focus();
     }
@@ -444,7 +467,7 @@
     }
     function startGuide() {
       var m = menuData();
-      if (hasMenu()) addChoices(m.ask || '어느 쪽에 해당하시나요?', m.nodes, []);
+      if (hasMenu()) addChoices({ text: m.ask || '어느 쪽에 해당하시나요?', nodes: m.nodes, path: [], back: null });
     }
     // 새 설정이 오면, 아직 아무것도 고르지 않았을 때만 처음 질문을 다시 그립니다.
     function renderGuide(force) {
