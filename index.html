@@ -464,7 +464,8 @@
 
     // 지난번 설정을 먼저 보여 주고(빠른 첫 화면), 최신 설정을 받아 바꿉니다.
     init(cfg);
-    var CFG_KEY = 'scChatConfig';
+    // 같은 github.io 주소 아래에 챗봇이 여러 개 있어도 서로의 설정이 섞이지 않도록 챗봇(서버 주소)마다 따로 저장합니다.
+    var CFG_KEY = 'scChatConfig:' + (IN_GAS ? location.pathname : API_URL);
     try {
       var cached = JSON.parse(localStorage.getItem(CFG_KEY) || 'null');
       if (cached) init(cached);
@@ -616,7 +617,9 @@
       var html = '<div class="card">' + renderMarkdown(clean);
       images = (images || []).filter(function (x) { return x && /^[A-Za-z0-9_-]{10,100}$/.test(x.id); });
       if (images.length) {
-        html += '<details class="shots"><summary>관련 화면 ' + images.length + '개 보기</summary><div class="shot-grid">' + images.map(function (x) {
+        // 답변 안에 그림이 하나도 없으면 관련 화면을 펼쳐서 바로 보여 줍니다.
+        var inline = /\[\[img:[A-Za-z0-9_-]+\]\]/.test(clean);
+        html += '<details class="shots"' + (inline ? '' : ' open') + '><summary>관련 화면 ' + images.length + '개 ' + (inline ? '더 보기' : '') + '</summary><div class="shot-grid">' + images.map(function (x) {
           return shotHtml(x.id, x.alt);
         }).join('') + '</div></details>';
       }
