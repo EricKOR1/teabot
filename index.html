@@ -648,8 +648,7 @@
       }
       if (refs.length) {
         html += '<div class="sources"><div class="label">근거 자료</div><ul class="refs">' + refs.map(function (r) {
-          return '<li class="ref">' + ICON_DOC + '<div><div class="ref-file">' + esc(refTitle(r)) + '</div>' +
-            (r.sections && r.sections.length ? '<div class="ref-sec">' + esc(r.sections.join(' · ')) + '</div>' : '') + '</div></li>';
+          return '<li class="ref">' + ICON_DOC + '<div><div class="ref-file">' + esc(refTitle(r)) + '</div></div></li>';
         }).join('') + '</ul></div>';
       }
       html += '</div><div class="tools"><button class="tool" type="button" data-copy>' + ICON_COPY + '복사</button></div>';
