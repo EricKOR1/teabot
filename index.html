@@ -638,14 +638,6 @@
       if (!refs || !refs.length) refs = (sources || []).map(function (f) { return { file: f, sections: [] }; });
       var clean = refs.length ? stripSourceLine(answer) : answer;
       var html = '<div class="card">' + renderMarkdown(clean);
-      images = (images || []).filter(function (x) { return x && /^[A-Za-z0-9_-]{10,100}$/.test(x.id); });
-      if (images.length) {
-        // 답변 안에 그림이 하나도 없으면 관련 화면을 펼쳐서 바로 보여 줍니다.
-        var inline = /\[\[img:[A-Za-z0-9_-]+\]\]/.test(clean);
-        html += '<details class="shots"' + (inline ? '' : ' open') + '><summary>관련 화면 ' + images.length + '개 ' + (inline ? '더 보기' : '') + '</summary><div class="shot-grid">' + images.map(function (x) {
-          return shotHtml(x.id, x.alt);
-        }).join('') + '</div></details>';
-      }
       if (refs.length) {
         html += '<div class="sources"><div class="label">근거 자료</div><ul class="refs">' + refs.map(function (r) {
           return '<li class="ref">' + ICON_DOC + '<div><div class="ref-file">' + esc(refTitle(r)) + '</div></div></li>';
@@ -654,8 +646,6 @@
       html += '</div><div class="tools"><button class="tool" type="button" data-copy>' + ICON_COPY + '복사</button></div>';
       shell.querySelector('.body').innerHTML = html;
       loadShots(shell.querySelector('.card'));
-      var det = shell.querySelector('details.shots');
-      if (det) det.addEventListener('toggle', function () { if (det.open) loadShots(det); });
       var copyBody = clean.replace(/\n?\[\[img:[A-Za-z0-9_-]+\]\]\n?/g, '\n') + (refs.length ? '\n\n근거 자료: ' + refs.map(refTitle).join(', ') : '');
       shell.querySelector('[data-copy]').addEventListener('click', function () { copyText(copyBody); });
     }
